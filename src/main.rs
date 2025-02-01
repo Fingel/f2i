@@ -109,16 +109,24 @@ fn extract_samples(image_data: &[f32]) -> Vec<f32> {
     samples
 }
 
+fn scaled_image(image_data: &[f32]) -> Array1<u8> {
+    let sampled_data = extract_samples(image_data);
+    let median = sampled_data[sampled_data.len() / 2];
+    let min_max = calc_zscale(&sampled_data);
+    linear_scale(image_data, median, min_max.max)
+}
+
 fn main() {
+    let flip = true;
+
     let mut fptr = FitsFile::open("ogg2m001-ep03-20241216-0739-e00.fits").unwrap();
     fptr.pretty_print().unwrap();
     let hdu = fptr.hdu(0).unwrap();
     let image_data: Vec<f32> = hdu.read_image(&mut fptr).unwrap();
-    let sampled_data = extract_samples(&image_data);
-    let median = sampled_data[sampled_data.len() / 2];
-    let min_max = calc_zscale(&sampled_data);
-    let mut scaled = linear_scale(&image_data, median, min_max.max);
-    scaled.invert_axis(Axis(0));
+    let mut scaled = scaled_image(&image_data);
+    if flip {
+        scaled.invert_axis(Axis(0));
+    }
     let image: ImageBuffer<image::Luma<u8>, _> =
         ImageBuffer::from_vec(2080, 2048, scaled.to_vec()).unwrap();
     let resized = resize(&image, 200, 197, image::imageops::FilterType::Gaussian);
