@@ -1,7 +1,7 @@
 use fitsio::FitsFile;
-use image::imageops::{flip_vertical, resize};
+use image::imageops::resize;
 use image::ImageBuffer;
-use ndarray::{stack, Array, Array1, Array2};
+use ndarray::{stack, Array, Array1, Array2, Axis};
 use ndarray_linalg::LeastSquaresSvd;
 
 fn gamma_adjust_table() -> Vec<u8> {
@@ -20,25 +20,19 @@ fn linear_scale(image_data: &[f32], zmin: f32, zmax: f32) -> Array1<u8> {
         max = zmax + 1.0;
         min = zmin - 1.0;
     }
-    println!("{:?}", min);
-    println!("{:?}", max);
     let scale = 255.0 / (max - min);
     let adjust = scale * min;
     let mut scaled_data = Array::from(image_data.to_vec());
     scaled_data = scaled_data.clamp(min, max);
-    println!("{:?}", scaled_data.first().unwrap());
     scaled_data *= scale;
     scaled_data -= adjust;
     scaled_data = scaled_data.round();
     let gamma_lookup = gamma_adjust_table();
     // todo figure out how to use select here
-    let data = Array::from(
-        scaled_data
-            .iter()
-            .map(|&x| gamma_lookup[x as usize])
-            .collect::<Vec<u8>>(),
-    );
-    data
+    scaled_data
+        .iter()
+        .map(|&x| gamma_lookup[x as usize])
+        .collect::<Array1<u8>>()
 }
 
 #[derive(Debug)]
@@ -123,10 +117,10 @@ fn main() {
     let sampled_data = extract_samples(&image_data);
     let median = sampled_data[sampled_data.len() / 2];
     let min_max = calc_zscale(&sampled_data);
-    let scaled = linear_scale(&image_data, median, min_max.max);
+    let mut scaled = linear_scale(&image_data, median, min_max.max);
+    scaled.invert_axis(Axis(0));
     let image: ImageBuffer<image::Luma<u8>, _> =
         ImageBuffer::from_vec(2080, 2048, scaled.to_vec()).unwrap();
     let resized = resize(&image, 200, 197, image::imageops::FilterType::Gaussian);
-    let flipped = flip_vertical(&resized);
-    flipped.save("scaled.jpg").unwrap();
+    resized.save("scaled.jpg").unwrap();
 }
