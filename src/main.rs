@@ -1,26 +1,45 @@
 use fitsio::FitsFile;
-use ndarray::{stack, Array, Array2};
+use image::imageops::{flip_vertical, resize};
+use image::ImageBuffer;
+use ndarray::{stack, Array, Array1, Array2};
 use ndarray_linalg::LeastSquaresSvd;
 
-// fn linear_scale(image_data: &[f32], zmin: f32, zmax: f32) {
-//     let max: f32;
-//     let min: f32;
-//     if zmax == zmin {
-//         max = zmax + 1.0;
-//         min = zmin - 1.0;
-//     } else {
-//         max = zmax;
-//         min = zmin;
-//     }
-//     let scale = 255.0 / (max - min);
-//     println!("{:?}", scale);
-//     let adjust = scale * min;
-//     let mut scaled_data: Vec<u8> = image_data
-//         .iter()
-//         .map(|x| (x * scale - adjust).max(min).min(max) as u8)
-//         .collect();
-//     println!("{:?}", scaled_data);
-// }
+fn gamma_adjust_table() -> Vec<u8> {
+    let size = 255 + 1; // Max size minus min size plus 1
+    let mut table = vec![0; size];
+    (0..size).for_each(|i| {
+        table[i] = (size as f32 * (i as f32 / 255.0).powf(1.0 / 2.5)) as u8;
+    });
+    table
+}
+
+fn linear_scale(image_data: &[f32], zmin: f32, zmax: f32) -> Array1<u8> {
+    let mut max = zmax;
+    let mut min = zmin;
+    if zmax == zmin {
+        max = zmax + 1.0;
+        min = zmin - 1.0;
+    }
+    println!("{:?}", min);
+    println!("{:?}", max);
+    let scale = 255.0 / (max - min);
+    let adjust = scale * min;
+    let mut scaled_data = Array::from(image_data.to_vec());
+    scaled_data = scaled_data.clamp(min, max);
+    println!("{:?}", scaled_data.first().unwrap());
+    scaled_data *= scale;
+    scaled_data -= adjust;
+    scaled_data = scaled_data.round();
+    let gamma_lookup = gamma_adjust_table();
+    // todo figure out how to use select here
+    let data = Array::from(
+        scaled_data
+            .iter()
+            .map(|&x| gamma_lookup[x as usize])
+            .collect::<Vec<u8>>(),
+    );
+    data
+}
 
 #[derive(Debug)]
 struct LeastSquareResult {
@@ -102,7 +121,12 @@ fn main() {
     let hdu = fptr.hdu(0).unwrap();
     let image_data: Vec<f32> = hdu.read_image(&mut fptr).unwrap();
     let sampled_data = extract_samples(&image_data);
-    // let median = sampled_data[sampled_data.len() / 2];
+    let median = sampled_data[sampled_data.len() / 2];
     let min_max = calc_zscale(&sampled_data);
-    println!("{:?}", min_max);
+    let scaled = linear_scale(&image_data, median, min_max.max);
+    let image: ImageBuffer<image::Luma<u8>, _> =
+        ImageBuffer::from_vec(2080, 2048, scaled.to_vec()).unwrap();
+    let resized = resize(&image, 200, 197, image::imageops::FilterType::Gaussian);
+    let flipped = flip_vertical(&resized);
+    flipped.save("scaled.jpg").unwrap();
 }
