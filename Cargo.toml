@@ -8,3 +8,4 @@ fitsio = "0.21.7"
 image = "0.25.5"
 ndarray = "0.16.1"
 ndarray-linalg = { version = "0.17.0", features = ["openblas-system"] }
+viuer = "0.9.1"

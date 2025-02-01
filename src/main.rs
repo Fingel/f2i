@@ -1,6 +1,6 @@
 use fitsio::FitsFile;
-use image::imageops::resize;
 use image::ImageBuffer;
+use image::{imageops::resize, DynamicImage};
 use ndarray::{stack, Array, Array1, Array2, Axis};
 use ndarray_linalg::LeastSquaresSvd;
 
@@ -116,19 +116,27 @@ fn scaled_image(image_data: &[f32]) -> Array1<u8> {
     linear_scale(image_data, median, min_max.max)
 }
 
+fn print_image(image: &DynamicImage) {
+    let conf = viuer::Config {
+        height: Some(20),
+        absolute_offset: false,
+        ..Default::default()
+    };
+    viuer::print(image, &conf).expect("Could not print image!");
+}
 fn main() {
     let flip = true;
 
     let mut fptr = FitsFile::open("ogg2m001-ep03-20241216-0739-e00.fits").unwrap();
-    fptr.pretty_print().unwrap();
     let hdu = fptr.hdu(0).unwrap();
     let image_data: Vec<f32> = hdu.read_image(&mut fptr).unwrap();
     let mut scaled = scaled_image(&image_data);
     if flip {
         scaled.invert_axis(Axis(0));
     }
-    let image: ImageBuffer<image::Luma<u8>, _> =
-        ImageBuffer::from_vec(2080, 2048, scaled.to_vec()).unwrap();
-    let resized = resize(&image, 200, 197, image::imageops::FilterType::Gaussian);
+    let image =
+        DynamicImage::ImageLuma8(ImageBuffer::from_vec(2080, 2048, scaled.to_vec()).unwrap());
+    let resized = image.resize(800, 800, image::imageops::FilterType::Triangle);
+    print_image(&resized);
     resized.save("scaled.jpg").unwrap();
 }
