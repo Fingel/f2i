@@ -31,12 +31,12 @@ struct LeastSquareResult {
     rms: f32,
 }
 
-fn least_squares_line_fit(image_data: &[f32]) -> LeastSquareResult {
-    let num_samples = image_data.len();
+fn least_squares_line_fit(sample_data: &[f32]) -> LeastSquareResult {
+    let num_samples = sample_data.len();
     let x: Vec<f32> = (0..num_samples).map(|i| i as f32).collect();
 
     let a: Array2<f32> = stack![ndarray::Axis(1), x, vec![1.0; num_samples]];
-    let y = Array::from(image_data.to_vec());
+    let y = Array::from(sample_data.to_vec());
     let result = a.least_squares(&y).unwrap();
     let mean_residual = result
         .residual_sum_of_squares
@@ -52,6 +52,33 @@ fn least_squares_line_fit(image_data: &[f32]) -> LeastSquareResult {
         num_iterations: 1,
         num_samples,
         rms,
+    }
+}
+
+#[derive(Debug)]
+struct ZscaleBounds {
+    min: f32,
+    max: f32,
+}
+
+fn calc_zscale(sample_data: &[f32]) -> ZscaleBounds {
+    let contrast = 0.1; // Hardcoded for now
+
+    let nsamples = sample_data.len();
+    let lsq_fit = least_squares_line_fit(sample_data);
+    let zmin = sample_data[0];
+    let zmax = sample_data[nsamples - 1];
+    let mut slope = lsq_fit.slope;
+
+    if contrast > 0.0 {
+        slope /= contrast;
+    }
+
+    let fitted_dy = slope * nsamples as f32 / 2.0;
+
+    ZscaleBounds {
+        min: zmin.max(lsq_fit.intercept - fitted_dy),
+        max: zmax.min(lsq_fit.intercept + fitted_dy),
     }
 }
 
@@ -75,6 +102,7 @@ fn main() {
     let hdu = fptr.hdu(0).unwrap();
     let image_data: Vec<f32> = hdu.read_image(&mut fptr).unwrap();
     let sampled_data = extract_samples(&image_data);
-    let fit = least_squares_line_fit(&sampled_data);
-    println!("{:?}", fit);
+    // let median = sampled_data[sampled_data.len() / 2];
+    let min_max = calc_zscale(&sampled_data);
+    println!("{:?}", min_max);
 }
