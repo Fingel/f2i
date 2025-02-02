@@ -25,3 +25,9 @@ When used as a thumbnailer, f2i has significant speed gains over fits2image:
 |tfn0m436-sq33-20250201-0129-e91.fits - original size | 106 ms | 255 ms |
 |tfn0m436-sq33-20250201-0129-e91.fits - 800x800 jpg 10 times | 858 ms | 2.6 seconds |
 |tfn0m436-sq33-20250201-0129-e91.fits - original size 10 times | 1.1 seconds | 2.6 seconds |
+
+
+## Installation
+`cfitsio` and `openblas` are required to build f2i. Built and tested with Rust 1.84.
+
+`cargo build && cargo install`
