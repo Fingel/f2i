@@ -1,8 +1,10 @@
+use clap::Parser;
 use fitsio::FitsFile;
+use image::DynamicImage;
 use image::ImageBuffer;
-use image::{imageops::resize, DynamicImage};
 use ndarray::{stack, Array, Array1, Array2, Axis};
 use ndarray_linalg::LeastSquaresSvd;
+use std::path::PathBuf;
 
 fn gamma_adjust_table() -> Vec<u8> {
     let size = 255 + 1; // Max size minus min size plus 1
@@ -124,19 +126,60 @@ fn print_image(image: &DynamicImage) {
     };
     viuer::print(image, &conf).expect("Could not print image!");
 }
-fn main() {
-    let flip = true;
 
-    let mut fptr = FitsFile::open("ogg2m001-ep03-20241216-0739-e00.fits").unwrap();
+#[derive(Parser)]
+#[command(version, about, long_about=None)]
+struct Cli {
+    /// Path to .fit file
+    image: PathBuf,
+
+    /// Flip image on Y-axis
+    #[arg(short, long)]
+    flip: bool,
+
+    /// Output file instead of displaying the image.
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+
+    /// Scale x-axis to n pixels, maintaining aspect ratio.
+    #[arg(short, long, conflicts_with = "y", requires = "output")]
+    x: Option<u32>,
+
+    /// Scale y-axis to n pixels, maintaining aspect ratio.
+    #[arg(short, long, conflicts_with = "x", requires = "output")]
+    y: Option<u32>,
+}
+
+fn main() {
+    let cli = Cli::parse();
+    let mut fptr = FitsFile::open(cli.image).expect("Could not open file for reading");
     let hdu = fptr.hdu(0).unwrap();
     let image_data: Vec<f32> = hdu.read_image(&mut fptr).unwrap();
+    let width_64: i64 = hdu
+        .read_key(&mut fptr, "NAXIS1")
+        .expect("Could not read NAXIS1");
+    let width = width_64 as u32;
+    let height_64: i64 = hdu
+        .read_key(&mut fptr, "NAXIS2")
+        .expect("Could not read NAXIS2");
+    let height = height_64 as u32;
     let mut scaled = scaled_image(&image_data);
-    if flip {
+    if cli.flip {
         scaled.invert_axis(Axis(0));
     }
-    let image =
-        DynamicImage::ImageLuma8(ImageBuffer::from_vec(2080, 2048, scaled.to_vec()).unwrap());
-    let resized = image.resize(800, 800, image::imageops::FilterType::Triangle);
-    print_image(&resized);
-    resized.save("scaled.jpg").unwrap();
+    let mut image =
+        DynamicImage::ImageLuma8(ImageBuffer::from_vec(width, height, scaled.to_vec()).unwrap());
+
+    if let Some(output) = cli.output {
+        let o_width = cli.x.unwrap_or(width);
+        let o_height = cli.y.unwrap_or(height);
+        if o_width != width || o_height != height {
+            image = image.resize(o_width, o_height, image::imageops::FilterType::Triangle);
+        }
+        image.save(&output).expect("Could not save image.");
+        println!("Sucessfully wrote {}", output.display());
+    } else {
+        image = image.resize(400, 400, image::imageops::FilterType::Triangle);
+        print_image(&image);
+    }
 }
