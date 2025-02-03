@@ -31,4 +31,4 @@ When used as a thumbnailer, f2i has significant speed gains over fits2image:
 ## Installation
 `cfitsio` and `openblas` are required to build f2i. Built and tested with Rust 1.84.
 
-`cargo build && cargo install`
+`cargo build --release && cargo install`
