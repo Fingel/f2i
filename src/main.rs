@@ -30,13 +30,10 @@ fn linear_scale(image_data: &[f32], zmin: f32, zmax: f32) -> Array1<u8> {
     scaled_data -= adjust;
     scaled_data = scaled_data.round();
     let gamma_lookup = gamma_adjust_table();
-    // todo figure out how to use select here
-    scaled_data
-        .iter()
-        .map(|&x| gamma_lookup[x as usize])
-        .collect::<Array1<u8>>()
+    scaled_data.map(|&e| gamma_lookup[e as usize])
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct LeastSquareResult {
     slope: f32,
@@ -70,6 +67,7 @@ fn least_squares_line_fit(sample_data: &[f32]) -> LeastSquareResult {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct ZscaleBounds {
     min: f32,
