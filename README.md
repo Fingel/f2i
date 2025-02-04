@@ -1,7 +1,8 @@
 # f2i
 
 Preview .fits files directly in the terminal and convert them to images. Works on remote hosts over ssh!
-![Screenshot From 2025-02-02 15-38-19](https://github.com/user-attachments/assets/231251e5-b88b-4341-a6ec-436e4c637423)
+
+![Screenshot From 2025-02-02 15-37-47](https://github.com/user-attachments/assets/a2aef716-a8a4-4f53-b46a-8bc2f518166d)
 
 ## Compatible Terminals
 Your terminal must support either the Kitty or iTerm image protocols.
