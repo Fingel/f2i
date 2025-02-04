@@ -99,12 +99,8 @@ fn extract_samples(image_data: &[f32]) -> Vec<f32> {
     // Return 2000 samples from the image data, sorted
 
     let num_samples = 2000;
-    let mut samples: Vec<f32> = image_data
-        .iter()
-        .step_by(image_data.len() / num_samples)
-        .skip(1)
-        .cloned()
-        .collect();
+    let steps = image_data.len() / num_samples;
+    let mut samples: Vec<f32> = image_data.iter().step_by(steps).skip(1).cloned().collect();
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
     samples
 }
