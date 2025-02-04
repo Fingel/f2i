@@ -29,6 +29,11 @@ When used as a thumbnailer, f2i has significant speed gains over fits2image:
 
 
 ## Installation
+
+Binaries for Linux-x86_64 can be downloaded from the [release page](https://github.com/Fingel/f2i/releases).
+
+## Building
+
 `cfitsio` and `openblas` are required to build f2i. Built and tested with Rust 1.84.
 
 `cargo build --release && cargo install`
