@@ -2,9 +2,8 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    tags: 
+      - '*'
 
 env:
   CARGO_TERM_COLOR: always
@@ -37,5 +36,11 @@ jobs:
         overwrite: true # optional, default is false
         # If true, hidden files will be included in the artifact. If false, hidden files will be excluded from the artifact.
         include-hidden-files: false # optional, default is false
+    - name: Upload to new release
+      uses: Shopify/upload-to-release@v1
+      with:
+        name: f2i.zip
+        path: target/release/f2i
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
           
           
