@@ -2,7 +2,7 @@ use clap::Parser;
 use fitsio::FitsFile;
 use image::DynamicImage;
 use image::ImageBuffer;
-use ndarray::{stack, Array, Array1, Array2, Axis};
+use ndarray::{stack, Array, Array2, ArrayD, Axis};
 use ndarray_linalg::LeastSquaresSvd;
 use std::path::PathBuf;
 
@@ -15,7 +15,7 @@ fn gamma_adjust_table() -> Vec<u8> {
     table
 }
 
-fn linear_scale(image_data: &[f32], zmin: f32, zmax: f32) -> Array1<u8> {
+fn linear_scale(mut image_data: ArrayD<f32>, zmin: f32, zmax: f32) -> ArrayD<u8> {
     let mut max = zmax;
     let mut min = zmin;
     if zmax == zmin {
@@ -24,13 +24,12 @@ fn linear_scale(image_data: &[f32], zmin: f32, zmax: f32) -> Array1<u8> {
     }
     let scale = 255.0 / (max - min);
     let adjust = scale * min;
-    let mut scaled_data = Array::from(image_data.to_vec());
-    scaled_data = scaled_data.clamp(min, max);
-    scaled_data *= scale;
-    scaled_data -= adjust;
-    scaled_data = scaled_data.round();
+    image_data = image_data.clamp(min, max);
+    image_data *= scale;
+    image_data -= adjust;
+    image_data = image_data.round();
     let gamma_lookup = gamma_adjust_table();
-    scaled_data.map(|&e| gamma_lookup[e as usize])
+    image_data.map(|&e| gamma_lookup[e as usize])
 }
 
 #[allow(dead_code)]
@@ -95,9 +94,8 @@ fn calc_zscale(sample_data: &[f32]) -> ZscaleBounds {
     }
 }
 
-fn extract_samples(image_data: &[f32]) -> Vec<f32> {
+fn extract_samples(image_data: &ArrayD<f32>) -> Vec<f32> {
     // Return 2000 samples from the image data, sorted
-
     let num_samples = 2000;
     let steps = image_data.len() / num_samples;
     let mut samples: Vec<f32> = image_data.iter().step_by(steps).skip(1).cloned().collect();
@@ -105,8 +103,8 @@ fn extract_samples(image_data: &[f32]) -> Vec<f32> {
     samples
 }
 
-fn scaled_image(image_data: &[f32]) -> Array1<u8> {
-    let sampled_data = extract_samples(image_data);
+fn scaled_image(image_data: ArrayD<f32>) -> ArrayD<u8> {
+    let sampled_data = extract_samples(&image_data);
     let median = sampled_data[sampled_data.len() / 2];
     let min_max = calc_zscale(&sampled_data);
     linear_scale(image_data, median, min_max.max)
@@ -146,23 +144,19 @@ struct Cli {
 
 fn main() {
     let cli = Cli::parse();
-    let mut fptr = FitsFile::open(cli.image).expect("Could not open file for reading");
-    let hdu = fptr.hdu(0).unwrap();
-    let image_data: Vec<f32> = hdu.read_image(&mut fptr).unwrap();
-    let width_64: i64 = hdu
-        .read_key(&mut fptr, "NAXIS1")
-        .expect("Could not read NAXIS1");
-    let width = width_64 as u32;
-    let height_64: i64 = hdu
-        .read_key(&mut fptr, "NAXIS2")
-        .expect("Could not read NAXIS2");
-    let height = height_64 as u32;
-    let mut scaled = scaled_image(&image_data);
+    let mut f = FitsFile::open(cli.image).expect("Could not open file for reading");
+    let hdu = f.primary_hdu().unwrap();
+    let image_data: ArrayD<f32> = hdu.read_image(&mut f).unwrap();
+    let dim = image_data.dim();
+    let height = dim[0] as u32;
+    let width = dim[1] as u32;
+    let mut scaled = scaled_image(image_data);
     if cli.flip {
         scaled.invert_axis(Axis(0));
     }
-    let mut image =
-        DynamicImage::ImageLuma8(ImageBuffer::from_vec(width, height, scaled.to_vec()).unwrap());
+    let mut image = DynamicImage::ImageLuma8(
+        ImageBuffer::from_vec(width, height, scaled.flatten().to_vec()).unwrap(),
+    );
 
     if let Some(output) = cli.output {
         let o_width = cli.x.unwrap_or(width);

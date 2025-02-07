@@ -521,6 +521,7 @@ checksum = "1bcdf0a688dc948f191d1ba288dff7e86d28c34aba4f94ffb5812672c152e0e4"
 dependencies = [
  "fitsio-sys",
  "libc",
+ "ndarray",
 ]
 
 [[package]]
