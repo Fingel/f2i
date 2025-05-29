@@ -1,12 +1,12 @@
 [package]
 name = "f2i"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.5.27", features = ["derive"] }
+clap = { version = "4.5.39", features = ["derive"] }
 fitsio = { version = "0.21.7", features = ["array"] }
-image = "0.25.5"
+image = "0.25.6"
 ndarray = "0.16.1"
 ndarray-linalg = { version = "0.17.0", features = ["openblas-system"] }
 viuer = "0.9.1"
