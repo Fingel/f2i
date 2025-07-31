@@ -4,6 +4,7 @@ use image::DynamicImage;
 use image::ImageBuffer;
 use ndarray::{stack, Array, Array2, ArrayD, Axis};
 use ndarray_linalg::LeastSquaresSvd;
+use std::error::Error;
 use std::path::PathBuf;
 
 fn gamma_adjust_table() -> Vec<u8> {
@@ -145,8 +146,12 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
     let mut f = FitsFile::open(cli.image).expect("Could not open file for reading");
-    let hdu = f.primary_hdu().unwrap();
-    let image_data: ArrayD<f32> = hdu.read_image(&mut f).unwrap();
+    let image_data: ArrayD<f32> = {
+        let hdus: Vec<_> = f.iter().collect();
+        hdus.into_iter()
+            .find_map(|hdu| hdu.read_image(&mut f).ok())
+            .expect("Could not read image data from any HDU")
+    };
     let dim = image_data.dim();
     let height = dim[0] as u32;
     let width = dim[1] as u32;
